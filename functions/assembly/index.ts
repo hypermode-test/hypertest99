@@ -1,48 +1,18 @@
-import { Game, addGame, getGameInfo, addResponse} from "./db";
-import { Leaderboard, computeLeaderboard, saveHypermodeReponses, evaluatePlayerResponses,evaluatePlayerResponsesLocal} from "./player";
-import { getRandomLetter, getRandonCategories} from "./hypergories";
+import { models } from "@hypermode/functions-as";
+import { ClassificationModel } from "@hypermode/models-as/models/experimental/classification";
 
-export { getGameInfo, getCurrentGameInfo} from "./db";
+const modelName = "sentiment-classifier";
+const threshold: f32 = 0.5;
 
+export function testClassifier(text: string): string {
+  const model = models.getModel<ClassificationModel>(modelName);
+  const input = model.createInput([text]);
+  const output = model.invoke(input);
 
-export function startGame(): Game {
-  const letter = getRandomLetter();
-  const categories = getRandonCategories();
-  const categoriesString = categories.join(", ");
-  const gameID = addGame(letter,categoriesString );
-  saveHypermodeReponses("HypermodeInternal",gameID,letter,categoriesString)
-  
-  return <Game>{
-    gameID: gameID,
-    letter: letter,
-    categories: categories,
-  };
+  const prediction = output.predictions[0];
+  if (prediction.confidence >= threshold) {
+    return prediction.label;
+  }
+
+  return "";
 }
-
-export function submit(gameID: string, player: string, responses: string): string {
-  const responseArray = responses.split(",");
-  const rs = responseArray.map<string>((response) => response.trim().toLowerCase());   
-  const gameInfo = getGameInfo(gameID);
-  console.log(`submitResponse for ${player}: ${rs}`)
-  const evalutation = evaluatePlayerResponses(gameInfo.letter, gameInfo.categories, responseArray);
-  const response = addResponse(player, gameID, rs, evalutation.entailment, evalutation.isValidLetter, evalutation.inDictionary);
-  return response;
-}
-
-
-export function leaderboard(gameID: string): Leaderboard {
-  const gameInfo = getGameInfo(gameID);
-  const leaderboard = computeLeaderboard(gameInfo);
-  
-  return leaderboard;
-}
-
-
-/*
-
-export function entails(text:string): f32 {
-
-  const test = inference.getClassificationLabelsForText("smallentailment", text);
-  return test.get("entailment")
-}
-*/
